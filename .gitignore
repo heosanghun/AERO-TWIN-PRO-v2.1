@@ -1,0 +1,13 @@
+.env
+doc/
+.cursor/
+mcps/
+terminals/
+agent-transcripts/
+node_modules/
+bin/
+obj/
+*.user
+*.suo
+*.sln.docstates
+*.pdf

@@ -1,0 +1,233 @@
+<Page
+    x:Class="ADMS.MainPageNew"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:ADMS"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:Dialog="using:ADMS.Dialog"
+    xmlns:Unity3D="using:IVR.UWP.Unity3D"
+    xmlns:ObjExplorer ="using:ADMS"
+    xmlns:MenuBar ="using:ADMS"
+    xmlns:Info="using:IVR.UWP.Common.InfoView"
+    xmlns:Layout="using:Syncfusion.UI.Xaml.Controls.Layout"
+    xmlns:Ribbon="using:Syncfusion.UI.Xaml.Controls.SfRibbon"
+    mc:Ignorable="d"
+    Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
+    <Page.DataContext>
+        <local:MainViewModelNew />
+    </Page.DataContext>
+    <Grid Background ="{ThemeResource ApplicationPageBackgroundThemeBrush}">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="40"/>          
+            <RowDefinition Height="auto"/>
+            <RowDefinition/>
+        </Grid.RowDefinitions>
+        <Grid x:Name="AppTitleBar" Grid.Row="0" Height="32" >            
+            <TextBlock Text="{Binding TitleNm}" 
+                         FontSize="14"
+                       Style="{StaticResource CaptionTextBlockStyle}" 
+                       Margin="0,10,0,0" TextAlignment="Center" />
+        </Grid>
+        <StackPanel Orientation="Horizontal" x:Name="LeftPanel" Margin="10,0,0,0" >
+            <AppBarButton Label="Undo" x:Name="btnUndo" Icon="Undo" Height="35" Width="30" VerticalAlignment="Stretch"  Margin="3,0,0,0"  IsEnabled="False" Click="btnQuick_Click"/>
+            <AppBarButton Icon="Redo" x:Name="btnRedo" Label="Redo" Height="35" Width="30" VerticalAlignment="Stretch"  LabelPosition="Collapsed" Margin="0,0,0,0" IsEnabled="False" Click="btnQuick_Click"/>
+            <AppBarButton Icon="OpenFile" x:Name="btnVpmOpen" Label="Ground" Height="35" Width="30" VerticalAlignment="Stretch" LabelPosition="Collapsed" Margin="0,0,0,0" Click="btnQuick_Click" />
+            <AppBarButton Icon="Save" x:Name="btnVpmSave" Label="저장" Height="35" Width="30" VerticalAlignment="Stretch" LabelPosition="Collapsed" Margin="0,0,0,0" Click="btnQuick_Click"/>
+        </StackPanel>
+        <Grid Grid.Row="1" BorderBrush="LightGray" BorderThickness="0,0,0,0">
+            <ContentControl Content="{Binding menuContrl}" HorizontalContentAlignment="Stretch"/>
+            <!--<MenuBar:TabViewMenuControl x:Name="MenuViewNew"></MenuBar:TabViewMenuControl>-->
+            <!--<MenuBar:SafetyTabViewMenuControl x:Name="MenuViewNew"></MenuBar:SafetyTabViewMenuControl>-->
+        </Grid>
+        <Layout:SfDockingManager x:Name="docking" Grid.Row="2" DockWindowBorderThickness="0" DockWindowContentMargin="0" DockTabPlacement="Bottom"
+                                 DockWindowCaptionBackground="{ThemeResource SystemControlAcrylicWindowBrush}"
+                                 DockWindowCaptionForeground="{ThemeResource ApplicationForegroundThemeBrush}" 
+                                 DockWindowBackground="{ThemeResource SystemControlAcrylicWindowBrush}"
+                                 DockWindowActiveForeground="{ThemeResource ApplicationForegroundThemeBrush}" 
+                                 DockWindowActiveBackground="{ThemeResource SystemControlAcrylicWindowBrush}"
+                                 DockFill="True" VerticalAlignment="Stretch" ShowMenuButton="False" Margin="5">
+
+            <ContentControl x:Name="Viewer" Layout:SfDockingManager.Header="Viewer"
+                                Layout:SfDockingManager.DockState="Dock"
+                                Layout:SfDockingManager.IsMenuButtonVisible="False"
+                                Layout:SfDockingManager.IsCloseButtonVisible="False"
+                                Layout:SfDockingManager.IsPinButtonVisible="False" 
+                                HorizontalAlignment="Stretch"
+                                SizeChanged="Viewer_SizeChanged" >
+
+                <Grid>
+                    <Unity3D:Unity3DPlayer  x:Name="pnlUnity3d"/>
+
+                    <!-- Phase 4: HUD 4대 패널 오버레이 (CES 2026 시연용) -->
+                    <Grid x:Name="HUDOverlay" Visibility="Visible" IsHitTestVisible="False" Margin="20">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+
+                        <!-- Panel 1: World Model (좌측 상단) -->
+                        <Border Grid.Row="0" Grid.Column="0" Background="#AA000000" Padding="15" CornerRadius="8">
+                            <StackPanel>
+                                <TextBlock Foreground="White" FontSize="14" Text="[ World Model ]" Margin="0,0,0,5"/>
+                                <TextBlock x:Name="txtWorldModel" Foreground="#FFFF4444" FontSize="16" FontWeight="Bold" Text="물리적 인과율 기반 시뮬레이션 대기..."/>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Panel 2: Agentic AI (우측 상단) -->
+                        <Border Grid.Row="0" Grid.Column="2" Background="#AA000000" Padding="15" CornerRadius="8">
+                            <StackPanel>
+                                <TextBlock Foreground="White" FontSize="14" Text="[ Agentic AI 자율 임무 ]" Margin="0,0,0,5"/>
+                                <TextBlock x:Name="txtAgenticStatus" Foreground="#FF33B5E5" FontSize="16" FontWeight="Bold" Text="결함 미발견"/>
+                                <TextBlock x:Name="txtAgenticTime" Foreground="White" FontSize="12" Text="AGV 대기중"/>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Panel 3: Spatial Intelligence (좌측 하단) -->
+                        <Border Grid.Row="2" Grid.Column="0" Background="#AA000000" Padding="15" CornerRadius="8">
+                            <StackPanel>
+                                <TextBlock Foreground="White" FontSize="14" Text="[ Spatial Sync ]" Margin="0,0,0,5"/>
+                                <!-- 실제 구현시 Image 브러쉬(PiP) 렌더링 텍스처로 사용 -->
+                                <Rectangle Width="160" Height="90" Fill="#55FFFFFF" RadiusX="4" RadiusY="4"/>
+                                <TextBlock Foreground="#FF99CC00" FontSize="12" Text="통제실 전문가 3D 동기화 완료" Margin="0,5,0,0" HorizontalAlignment="Center"/>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Panel 4: Physical AI (우측 하단) -->
+                        <Border Grid.Row="2" Grid.Column="2" Background="#AA000000" Padding="15" CornerRadius="8">
+                            <StackPanel>
+                                <TextBlock Foreground="White" FontSize="14" Text="[ Physical AI 행동 가이드 ]" Margin="0,0,0,5"/>
+                                <TextBlock x:Name="txtPhysicalWarning" Foreground="#FFFFBB33" FontSize="16" FontWeight="Bold" Text="목표 토크 20Nm / 현재 0Nm"/>
+                                <ProgressBar x:Name="pbTorque" Maximum="20" Value="0" Height="8" Margin="0,5,0,0" Foreground="#FFFFBB33"/>
+                            </StackPanel>
+                        </Border>
+                    </Grid>
+                </Grid>
+            </ContentControl>
+            <!--
+            <Unity3D:Unity3DPlayer x:Name="pnlUnity3d" Layout:SfDockingManager.Header="Viewer"
+                                Layout:SfDockingManager.DockState="Dock"
+                                Layout:SfDockingManager.IsMenuButtonVisible="False"
+                                Layout:SfDockingManager.IsCloseButtonVisible="False"
+                                Layout:SfDockingManager.IsPinButtonVisible="False" 
+                                HorizontalAlignment="Stretch"
+                                SizeChanged="Viewer_SizeChanged" >
+            </Unity3D:Unity3DPlayer>
+            -->
+            <!--#Region 부품도-->
+            <!--#Region 트리뷰-->
+            <!--<ContentControl x:Name="ObjectExplorer" Layout:SfDockingManager.Header="ObjectExplorer"
+                                Layout:SfDockingManager.DockState="Dock" 
+                                Layout:SfDockingManager.IsMenuButtonVisible="False"
+                                Layout:SfDockingManager.SideInDockedMode="Left"
+                                Layout:SfDockingManager.DesiredWidthInDockedMode="300"
+                                Layout:SfDockingManager.DesiredHeightInDockedMode="400" >-->
+                <local:ObjectExplorer x:Name="ObjectExplorer" Layout:SfDockingManager.Header="ObjectExplorer"
+                                Layout:SfDockingManager.DockState="Dock" 
+                                Layout:SfDockingManager.IsMenuButtonVisible="False"
+                                Layout:SfDockingManager.TargetNameInDockedMode="Viewer"
+                                Layout:SfDockingManager.SideInDockedMode="Left"
+                                Layout:SfDockingManager.DesiredWidthInDockedMode="310"
+                                Layout:SfDockingManager.DesiredHeightInDockedMode="400"
+                                Layout:SfDockingManager.IsCloseButtonVisible="False"                                     
+                                />
+
+                    <!--<ObjExplorer:ObjectExplorer x:Name="ObjectExp" />
+
+            </ContentControl>-->
+                <!--#EndRegion-->
+            <!--#Region 부품도-->
+            <!--<ContentControl x:Name="부품도" Layout:SfDockingManager.Header="부품도" 
+                                Layout:SfDockingManager.DockState="Dock"
+                                Layout:SfDockingManager.IsMenuButtonVisible="false"
+                                Layout:SfDockingManager.TargetNameInDockedMode="ObjectExplorer"
+                                Layout:SfDockingManager.SideInDockedMode="Tabbed">
+            </ContentControl>-->
+            <!--#EndRegion-->
+            <!--#Region 정보창-->
+            <ContentControl x:Name="InforMation" Layout:SfDockingManager.Header="속성 정보" 
+                                Layout:SfDockingManager.DockState="Dock"
+                                Layout:SfDockingManager.IsMenuButtonVisible="False"
+                                Layout:SfDockingManager.TargetNameInDockedMode="ObjectExplorer"
+                                Layout:SfDockingManager.SideInDockedMode="Bottom"
+                                Layout:SfDockingManager.DesiredHeightInDockedMode="311"
+                                HorizontalContentAlignment="Stretch">
+                <Dialog:Information x:Name="infoView"/>
+            </ContentControl>
+            <!--#EndRegion-->
+            <!--#Region TASK창-->
+            <!--<ContentControl x:Name="Scenario" Layout:SfDockingManager.Header="Task" 
+                                Layout:SfDockingManager.DockState="Dock"
+                            Layout:SfDockingManager.TargetNameInDockedMode="Viewer"
+                                Layout:SfDockingManager.SideInDockedMode="Right"
+                                Layout:SfDockingManager.IsMenuButtonVisible="False"
+                                Layout:SfDockingManager.DesiredWidthInDockedMode="400">
+                    --><!--<local:Scenario x:Name="Scenario"/>--><!--
+            </ContentControl>-->
+            <local:Scenario x:Name="Scenario" Layout:SfDockingManager.Header="시나리오판넬"
+                                Layout:SfDockingManager.DockState="Dock" 
+                                Layout:SfDockingManager.IsMenuButtonVisible="False"
+                                Layout:SfDockingManager.SideInDockedMode="Right"
+                                Layout:SfDockingManager.DesiredWidthInDockedMode="350"
+                                Layout:SfDockingManager.DesiredHeightInDockedMode="400"
+                                Layout:SfDockingManager.IsCloseButtonVisible="False"     
+                                />
+
+            <!--#EndRegion-->
+
+            <!--<ContentControl x:Name="PartLinker"
+                                Layout:SfDockingManager.Header="부품링크" 
+                                Layout:SfDockingManager.IsMenuButtonVisible="False"
+                                Layout:SfDockingManager.DockState="Float">
+                <Dialog:PartLinker x:Name="PartLinkerCtrl" HorizontalAlignment="Stretch"/>
+            </ContentControl>-->
+
+            <ContentControl x:Name="CurveEditor"
+                                Layout:SfDockingManager.Header="케이블 편집" 
+                                Layout:SfDockingManager.IsMenuButtonVisible="False"
+                                Layout:SfDockingManager.DockState="Float"
+                                HorizontalContentAlignment="Stretch">
+                <Dialog:CurveEditor x:Name="CurveEditorCtrl" HorizontalAlignment="Stretch"/>
+            </ContentControl>
+
+            <ContentControl x:Name="PipeEditor"
+                                Layout:SfDockingManager.Header="배관 편집" 
+                                Layout:SfDockingManager.IsMenuButtonVisible="False"
+                                Layout:SfDockingManager.DockState="Float"
+                                HorizontalContentAlignment="Stretch">
+                <Dialog:PipeEditor x:Name="PipeEditorCtrl" HorizontalAlignment="Stretch"/>
+            </ContentControl>
+
+            <ContentControl x:Name="AlignEditor"
+                                Layout:SfDockingManager.Header="오브젝트 정렬" 
+                                Layout:SfDockingManager.IsMenuButtonVisible="False"
+                                Layout:SfDockingManager.DockState="Float"
+                                HorizontalContentAlignment="Stretch">
+                <Dialog:AlignEditor x:Name="AlignEditorCtrl" HorizontalAlignment="Stretch"/>
+            </ContentControl>
+
+            <ContentControl x:Name="ColorPalette"
+                                Layout:SfDockingManager.Header="색상" 
+                                Layout:SfDockingManager.IsMenuButtonVisible="False"
+                                Layout:SfDockingManager.DockState="Float">
+                <Dialog:ColorPalette x:Name="ColorPaletteCtrl" HorizontalAlignment="Stretch"/>
+            </ContentControl>
+            <!--<ContentControl x:Name="ProcedureInput"
+                                Layout:SfDockingManager.Header="절차입력창" 
+                                Layout:SfDockingManager.IsMenuButtonVisible="False"
+                                Layout:SfDockingManager.DockState="Float" />-->
+            <!--<Dialog:ProcedureInputView x:Name="ProcedureInput"
+                                Layout:SfDockingManager.Header="절차입력창" 
+                                Layout:SfDockingManager.IsMenuButtonVisible="False"
+                                Layout:SfDockingManager.DockState="Float"/>-->
+
+        </Layout:SfDockingManager>
+
+    </Grid>
+</Page>

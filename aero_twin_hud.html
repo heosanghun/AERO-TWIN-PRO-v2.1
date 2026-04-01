@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aero-Twin Spatial Copilot HUD</title>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@500;700&display=swap" rel="stylesheet">
+    <!-- GSAP for animations -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <style>
+        :root {
+            --cyan: #00f3ff;
+            --red: #ff3333;
+            --amber: #ffaa00;
+            --bg-dark: #0a0e17;
+            --panel-bg: rgba(10, 14, 23, 0.75);
+            --border-glow: 0 0 10px rgba(0, 243, 255, 0.5);
+        }
+
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            background-color: var(--bg-dark);
+            color: #fff;
+            font-family: 'Rajdhani', sans-serif;
+            overflow: hidden;
+        }
+
+        /* 3D Canvas Background */
+        #canvas-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+        }
+
+        /* HUD Overlay Grid */
+        #hud-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 10;
+            display: grid;
+            grid-template-columns: 350px 1fr 350px;
+            grid-template-rows: auto 1fr auto;
+            pointer-events: none; /* Let clicks pass through to 3D */
+            padding: 30px;
+            box-sizing: border-box;
+        }
+
+        /* Scanline effect */
+        .scanlines {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(
+                to bottom,
+                rgba(255,255,255,0),
+                rgba(255,255,255,0) 50%,
+                rgba(0,0,0,0.1) 50%,
+                rgba(0,0,0,0.1)
+            );
+            background-size: 100% 4px;
+            z-index: 99;
+            pointer-events: none;
+        }
+
+        /* Vignette */
+        .vignette {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(circle, transparent 50%, rgba(0,0,0,0.8) 150%);
+            z-index: 98;
+            pointer-events: none;
+        }
+
+        /* Generic Panel Style */
+        .panel {
+            background: var(--panel-bg);
+            border: 1px solid var(--cyan);
+            border-radius: 4px;
+            padding: 20px;
+            backdrop-filter: blur(5px);
+            box-shadow: var(--border-glow);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .panel::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 2px;
+            background: var(--cyan);
+            box-shadow: 0 0 10px var(--cyan);
+        }
+
+        .panel-title {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 14px;
+            color: var(--cyan);
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+        }
+
+        .panel-title::before {
+            content: '';
+            display: inline-block;
+            width: 8px; height: 8px;
+            background: var(--cyan);
+            margin-right: 10px;
+        }
+
+        /* Top Left: World Model */
+        .panel-tl { grid-column: 1; grid-row: 1; border-color: var(--red); box-shadow: 0 0 15px rgba(255,51,51,0.4); }
+        .panel-tl .panel-title { color: var(--red); }
+        .panel-tl .panel-title::before { background: var(--red); }
+        
+        /* Top Right: Agentic AI */
+        .panel-tr { grid-column: 3; grid-row: 1; border-color: var(--cyan); }
+        
+        /* Bottom Left: Spatial Sync */
+        .panel-bl { grid-column: 1; grid-row: 3; border-color: var(--cyan); }
+        
+        /* Bottom Right: Physical AI */
+        .panel-br { grid-column: 3; grid-row: 3; border-color: var(--amber); box-shadow: 0 0 15px rgba(255,170,0,0.4); }
+        .panel-br .panel-title { color: var(--amber); }
+        .panel-br .panel-title::before { background: var(--amber); }
+
+        /* Typography */
+        h2 { font-family: 'Orbitron', sans-serif; margin: 0 0 10px 0; font-size: 24px; }
+        p { margin: 0 0 8px 0; font-size: 16px; color: #b3c2d1; }
+        .highlight-red { color: var(--red); font-weight: bold; text-shadow: 0 0 5px var(--red); }
+        .highlight-cyan { color: var(--cyan); font-weight: bold; text-shadow: 0 0 5px var(--cyan); }
+        .highlight-amber { color: var(--amber); font-weight: bold; text-shadow: 0 0 5px var(--amber); }
+
+        /* Progress Bar (Torque) */
+        .progress-container {
+            width: 100%;
+            height: 12px;
+            background: rgba(255,255,255,0.1);
+            border: 1px solid var(--amber);
+            border-radius: 6px;
+            margin-top: 15px;
+            overflow: hidden;
+            position: relative;
+        }
+        .progress-fill {
+            height: 100%;
+            background: var(--amber);
+            width: 75%; /* 15Nm / 20Nm */
+            box-shadow: 0 0 10px var(--amber);
+            transition: width 0.2s ease;
+        }
+        .progress-target {
+            position: absolute;
+            top: -2px;
+            bottom: -2px;
+            left: 98%; /* Target 20Nm out of say 20.5Nm scale */
+            width: 2px;
+            background: #fff;
+            box-shadow: 0 0 5px #fff;
+        }
+
+        /* PiP Viewport (Spatial) */
+        .pip-container {
+            width: 100%;
+            height: 120px;
+            background: #000;
+            border: 1px solid var(--cyan);
+            border-radius: 4px;
+            margin-top: 10px;
+            position: relative;
+            overflow: hidden;
+        }
+        .pip-inner {
+            width: 100%;
+            height: 100%;
+            background: repeating-linear-gradient(
+                45deg,
+                #0a192f,
+                #0a192f 10px,
+                #0d2340 10px,
+                #0d2340 20px
+            );
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--cyan);
+            font-size: 14px;
+            position: relative;
+        }
+        .pip-inner::after {
+            content: 'REC';
+            position: absolute;
+            top: 5px; right: 8px;
+            color: var(--red);
+            font-size: 10px;
+            font-weight: bold;
+            animation: blink 1s infinite;
+        }
+
+        /* Logs container */
+        .log-box {
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 12px;
+            color: #88a;
+            height: 60px;
+            overflow: hidden;
+            margin-top: 10px;
+            border-top: 1px dashed rgba(0,243,255,0.3);
+            padding-top: 10px;
+        }
+
+        /* Center Crosshair */
+        .crosshair {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 100px;
+            height: 100px;
+            z-index: 5;
+            pointer-events: none;
+        }
+        .ch-line {
+            position: absolute;
+            background: rgba(0, 243, 255, 0.4);
+        }
+        .ch-h { width: 100%; height: 1px; top: 50%; left: 0; }
+        .ch-v { height: 100%; width: 1px; left: 50%; top: 0; }
+        .ch-circle {
+            position: absolute;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            width: 40px; height: 40px;
+            border: 1px solid rgba(0, 243, 255, 0.6);
+            border-radius: 50%;
+        }
+
+        /* Header Info */
+        .hud-header {
+            position: absolute;
+            top: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            text-align: center;
+            z-index: 10;
+        }
+        .hud-header h1 {
+            font-family: 'Orbitron', sans-serif;
+            margin: 0;
+            font-size: 28px;
+            color: #fff;
+            text-shadow: 0 0 10px var(--cyan);
+            letter-spacing: 4px;
+        }
+        .hud-header p {
+            font-size: 14px;
+            color: var(--cyan);
+            letter-spacing: 2px;
+            margin-top: 5px;
+        }
+
+        @keyframes blink {
+            0%, 49% { opacity: 1; }
+            50%, 100% { opacity: 0; }
+        }
+
+    </style>
+    <!-- Three.js for 3D Background -->
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+          "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+        }
+      }
+    </script>
+</head>
+<body>
+
+    <div class="scanlines"></div>
+    <div class="vignette"></div>
+
+    <div id="canvas-container"></div>
+
+    <div class="hud-header">
+        <h1>AERO-TWIN</h1>
+        <p>LEVEL 4 AUTONOMOUS MRO COPILOT</p>
+    </div>
+
+    <div class="crosshair">
+        <div class="ch-line ch-h"></div>
+        <div class="ch-line ch-v"></div>
+        <div class="ch-circle"></div>
+    </div>
+
+    <div id="hud-overlay">
+        <!-- Panel 1: World Model -->
+        <div class="panel panel-tl">
+            <div class="panel-title">World Model / Physical Sim</div>
+            <h2 class="highlight-red">WARNING</h2>
+            <p>Target: <span style="color:#fff">T-Valve 04 / Coolant Pipe</span></p>
+            <p>Status: <span class="highlight-red">Stress Limit Exceeded</span></p>
+            <p>> 15분 후 파열 예측. 물리적 인과율 시뮬레이션 완료.</p>
+            <div class="log-box" id="log-world">
+                [SYS] Computing fluid dynamics...<br>
+                [SYS] Pressure: 14.2 MPa (CRITICAL)<br>
+                [SYS] Collision mesh updated.
+            </div>
+        </div>
+
+        <!-- Panel 2: Agentic AI -->
+        <div class="panel panel-tr">
+            <div class="panel-title">Agentic AI / Task Control</div>
+            <h2 class="highlight-cyan">AUTONOMOUS MODE</h2>
+            <p>Task: <span style="color:#fff">Replace T-Valve 04</span></p>
+            <p>Action: <span class="highlight-cyan">Part Ordered (Auto)</span></p>
+            <p>> 무인 운반 로봇(AGV) 도착 예정: 2분 전</p>
+            <div class="log-box" id="log-agent">
+                [AGENT] ERP Inventory check: OK<br>
+                [AGENT] Dispatching AGV-092...<br>
+                [AGENT] Nav-path generated for MRO.
+            </div>
+        </div>
+
+        <!-- Panel 3: Spatial Sync -->
+        <div class="panel panel-bl">
+            <div class="panel-title">Spatial Sync / Remote Expert</div>
+            <p>Connection: <span class="highlight-cyan">KASA Control Room</span></p>
+            <div class="pip-container">
+                <div class="pip-inner">
+                    [ REMOTE 3D AVATAR SYNCED ]<br>
+                    Expert: Dr. Lee (Sacheon)
+                </div>
+            </div>
+            <p style="margin-top:10px">> 공간 매쉬 및 1인칭 시야 동기화 완료</p>
+        </div>
+
+        <!-- Panel 4: Physical AI -->
+        <div class="panel panel-br">
+            <div class="panel-title">Physical AI / Action Guide</div>
+            <h2 class="highlight-amber">TORQUE FEEDBACK</h2>
+            <p>Target: <span style="color:#fff">20.0 Nm</span></p>
+            <p>Current: <span class="highlight-amber">15.0 Nm</span></p>
+            <div class="progress-container">
+                <div class="progress-fill" id="torque-bar"></div>
+                <div class="progress-target"></div>
+            </div>
+            <p style="margin-top:10px; font-size:14px">> 35도 우측 회전 유지. 3cm 더 이동 요망.</p>
+        </div>
+    </div>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+        // 1. Setup Three.js Scene
+        const container = document.getElementById('canvas-container');
+        const scene = new THREE.Scene();
+        scene.fog = new THREE.FogExp2(0x0a0e17, 0.05);
+
+        const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.set(0, 1, 5);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(window.devicePixelRatio);
+        container.appendChild(renderer.domElement);
+
+        const controls = new OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.05;
+        controls.autoRotate = true;
+        controls.autoRotateSpeed = 0.5;
+        controls.enableZoom = false;
+
+        // 2. Lighting
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.2);
+        scene.add(ambientLight);
+
+        const spotLight = new THREE.SpotLight(0x00f3ff, 50);
+        spotLight.position.set(5, 5, 5);
+        spotLight.angle = Math.PI / 6;
+        scene.add(spotLight);
+
+        const redLight = new THREE.PointLight(0xff3333, 20, 10);
+        redLight.position.set(-1, 0, 1);
+        scene.add(redLight);
+
+        // 3. Create a conceptual T-Valve / Pipe assembly
+        const group = new THREE.Group();
+        scene.add(group);
+
+        // Main Pipe
+        const pipeGeo = new THREE.CylinderGeometry(0.5, 0.5, 4, 32);
+        const pipeMat = new THREE.MeshStandardMaterial({ 
+            color: 0x445566, 
+            metalness: 0.8, 
+            roughness: 0.2,
+            wireframe: true // Cyberpunk hologram look
+        });
+        const pipe = new THREE.Mesh(pipeGeo, pipeMat);
+        pipe.rotation.z = Math.PI / 2;
+        group.add(pipe);
+
+        // T-Junction (The defective part)
+        const tGeo = new THREE.CylinderGeometry(0.6, 0.6, 1.5, 32);
+        const tMat = new THREE.MeshStandardMaterial({
+            color: 0xff3333, // Red warning
+            metalness: 0.5,
+            roughness: 0.1,
+            emissive: 0xff0000,
+            emissiveIntensity: 0.5,
+            transparent: true,
+            opacity: 0.8
+        });
+        const tJunction = new THREE.Mesh(tGeo, tMat);
+        tJunction.position.y = 0.5;
+        group.add(tJunction);
+
+        // Particle System for fluid leak simulation (World Model)
+        const particlesGeometry = new THREE.BufferGeometry();
+        const particlesCount = 200;
+        const posArray = new Float32Array(particlesCount * 3);
+        for(let i=0; i < particlesCount * 3; i++) {
+            posArray[i] = (Math.random() - 0.5) * 1.5;
+        }
+        particlesGeometry.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
+        const particlesMaterial = new THREE.PointsMaterial({
+            size: 0.05,
+            color: 0xffaa00,
+            transparent: true,
+            opacity: 0.8,
+            blending: THREE.AdditiveBlending
+        });
+        const particlesMesh = new THREE.Points(particlesGeometry, particlesMaterial);
+        particlesMesh.position.y = 1.0;
+        group.add(particlesMesh);
+
+        // 4. Animation Loop
+        const clock = new THREE.Clock();
+        
+        function animate() {
+            requestAnimationFrame(animate);
+            const elapsedTime = clock.getElapsedTime();
+
+            // Pulse the red emissive light on the defective part
+            tMat.emissiveIntensity = 0.5 + Math.sin(elapsedTime * 4) * 0.3;
+            redLight.intensity = 20 + Math.sin(elapsedTime * 4) * 10;
+
+            // Animate particles (Leak effect)
+            particlesMesh.position.y += Math.sin(elapsedTime * 2) * 0.002;
+            particlesMesh.rotation.y = elapsedTime * 0.5;
+
+            controls.update();
+            renderer.render(scene, camera);
+        }
+        animate();
+
+        // Window resize
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        // 5. GSAP UI Animations
+        gsap.from(".panel", {
+            duration: 1,
+            y: 50,
+            opacity: 0,
+            stagger: 0.2,
+            ease: "power3.out",
+            delay: 0.5
+        });
+
+        gsap.from(".crosshair", {
+            duration: 1.5,
+            scale: 0,
+            opacity: 0,
+            ease: "elastic.out(1, 0.3)",
+            delay: 1.5
+        });
+
+        // Simulate Torque Progress
+        const torqueBar = document.getElementById('torque-bar');
+        gsap.to(torqueBar, {
+            width: "85%",
+            duration: 2,
+            ease: "power2.inOut",
+            yoyo: true,
+            repeat: -1,
+            delay: 2
+        });
+
+    </script>
+</body>
+</html>
